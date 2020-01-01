@@ -1,0 +1,42 @@
+name: compile
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@master
+
+      - name: Install EOSIO.CDT
+        run: |
+          wget https://github.com/eosio/eosio.cdt/releases/download/v1.7.0/eosio.cdt_1.7.0-1-ubuntu-18.04_amd64.deb
+          sudo apt install ./eosio.cdt_1.7.0-1-ubuntu-18.04_amd64.deb
+
+      - name: Compile
+        run: |
+          eosio-cpp gateway/gateway.cpp -o gateway.wasm
+          echo "CODE_HASH=$(sha256sum gateway.wasm | awk '{print $1}')" >> $GITHUB_ENV
+
+      - name: Write code hash
+        run: |
+          echo ${{ env.CODE_HASH }} >> gateway.codehash.txt
+
+      - name: Upload contracts
+        uses: actions/upload-artifact@v2
+        with:
+          name: contracts-${{ env.CODE_HASH }}
+          path: |
+            gateway.wasm
+            gateway.abi
+            gateway.codehash.txt
+
+      - name: Code hash
+        run: |
+          echo "Compiled code hash:" ${{ env.CODE_HASH }}
+          echo "Run 'cleos -u https://api.eosn.io get code nxsgatewayxx' to get the on-chain hash"
